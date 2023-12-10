@@ -1,0 +1,316 @@
+---
+title: "ML-Exam 2"
+author: "Siddharth Tayi"
+date: "2023-12-06"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(arm)
+library(arules)
+library(arulesViz)
+library(viridis)
+library(arules)
+library(TSP)
+library(data.table)
+library(ggplot2)
+library(Matrix)
+library(tcltk)
+library(dplyr)
+library(devtools)
+library(purrr)
+library(tidyr)
+library(stopwords)
+library(tokenizers)
+
+```
+
+```{r}
+
+setwd("D:/Masters-2023/Machine Learning/ML - Exam 2")
+data = read.csv('ML_EXAM2_2.csv')
+head(data)
+
+```
+
+```{r}
+
+prods = data$products_viewed
+
+df = data.frame(prods = prods)
+
+head(df)
+
+```
+
+```{r}
+
+# Create an empty csv file to store the tokenized comments
+transaction_comments = "product_tokenized.csv"
+
+# Open the file
+trans <- file(transaction_comments)
+
+# Tokenize the text in the "lyrics" column
+Tokens <- tokenizers::tokenize_words(
+  df$prods[1], stopwords = stopwords::stopwords("en"), 
+  lowercase = T,  strip_punct = T, strip_numeric = T,
+  simplify = T)
+
+# Words to be removed
+words_to_remove <- c("fuck", "bitch", "shit", "hell", "n", "que", "de", "en", "la", "el", "canci", "porn", "el",	"que", "est", "leyendo", "este", "comentario",	"pasen",	"por",	"mi", "canal",	"que",	"estar",	"subiendo",	"mucho",	"contenidos",	"gracias",	"por",	"detenerte",	"leer",	"este",	"comentario",	"que",	"dios",	'te',	"bendiga", "fucked"
+)
+
+# Remove specified words from tokens
+Tokens <- Tokens[!Tokens %in% words_to_remove]
+
+# Write tokens (excluding specified words) to the file. It concatenates the tokens into a single string, separates them by commas, and writes them to the file.
+#cat(paste(unlist(Tokens), collapse = ","), "\n", file = Trans)
+
+# Append remaining lists of tokens into file
+Trans <- file(transaction_comments, open = "a")
+for (i in 2:nrow(df)) {
+  Tokens <- tokenize_words(df$prods[i],
+                           stopwords = stopwords::stopwords("en"),
+                           lowercase = TRUE,
+                           strip_punct = TRUE,
+                           simplify = TRUE)
+  
+  # Remove specified words from tokens
+  Tokens <- Tokens[!Tokens %in% words_to_remove]
+  
+  # Write tokens (excluding specified words) to the file
+  cat(paste(unlist(Tokens), collapse = ","), "\n", file = Trans)
+  #cat(unlist(Tokens))
+}
+
+close(Trans) # Close the file
+
+print("Done processing")
+
+
+
+```
+
+```{r}
+
+# Read the CSV file
+prod_df <- read.csv('product_tokenized.csv', header = FALSE, sep = ",")
+head(prod_df)
+
+# Convert all columns to character
+prod_df <- prod_df %>%
+  mutate_all(as.character)
+
+# Check the structure of the dataframe
+str(prod_df)
+
+# Remove the first row (assuming it contains header information)
+prod_df <- prod_df[-1, ]
+head(prod_df)
+
+
+```
+
+```{r}
+
+capabilities()["tcltk"]
+library(arulesViz)
+
+```
+
+```{r}
+
+prod_bask = read.transactions("product_tokenized.csv",
+              
+                           rm.duplicates = FALSE, 
+                           format = "basket",  
+                           sep="," #) 
+                           ,cols=1
+                           ) 
+
+
+```
+
+```{r}
+
+associa_rules <- apriori(data = prod_bask, 
+                        parameter = list(support = 0.06, 
+                                         confidence = 0.09, minlen = 2))
+
+
+```
+
+```{r}
+
+
+# Visualising the results
+supp <- inspect(sort(associa_rules, by = 'support')[1:5])
+conf <- inspect(sort(associa_rules, by = 'confidence')[1:5])
+lift <- inspect(sort(associa_rules, by = 'lift')[1:5])
+
+```
+
+```{r}
+# Plot
+itemFrequencyPlot(prod_bask, topN = 15,
+                  col = 'lightblue',
+                  main = 'Relative Item Frequency Plot')
+```
+
+```{r}
+
+plot(associa_rules, 
+     method = "graph", 
+     measure = "confidence", 
+     shading = "lift")
+
+```
+
+```{r}
+# Filter rules based on support, confidence, or lift
+filtered_rules <- subset(associa_rules, lift > 1)
+
+# Inspect the top rules
+top_rules <- inspect(sort(filtered_rules, by = 'support')[1:5])
+
+# Print the top rules
+print(top_rules)
+```
+
+```{r}
+BreadRules <- apriori(data=prod_bask,parameter = list(supp=.001, conf=.01, minlen=2),
+                       appearance = list(lhs="smartwatch"),
+                       control=list(verbose=FALSE))
+BreadRules <- sort(BreadRules, decreasing=TRUE, by="support")
+inspect(BreadRules)
+
+```
+
+## PART 2
+
+### Q1
+
+### Coordinates: X1 = (-2, 4); Y1 = -1, X2 = (2, 2); Y2 = 1, X3 = (4, 2); Y3 = 1
+
+$$
+ \lambda_1 Y_1 + \lambda_2 Y_2 + \lambda_3 Y_3 = 0
+$$
+
+$$
+ - \lambda_1 + \lambda_2 + \lambda_3 = 0
+$$
+
+$$
+\lambda_3 =  \lambda_1 - \lambda_2 
+$$
+
+#### LAGRANGIAN CALCULATIONS
+
+$$
+L = \Sigma_{i = 1}^{3} \lambda_i * X_i * y_i - \frac{1}{2}[ \Sigma_{i = 1}^{3} \Sigma_{j = 1}^{3} \lambda_i \lambda_j X_i^T X_j  y_i y_j]
+$$
+
+$$
+L = \lambda_1 + \lambda_2 + \lambda_3 + \frac{1}{2} \left[ \lambda_1^2 \sum (X_1 \cdot X_1) y_1^2 + \lambda_2^2 \sum (X_2 \cdot X_2) y_2^2 + \lambda_3^2 \sum (X_3 \cdot X_3) y_3^2 \right] + \lambda_1 \lambda_2 \sum (X_1 \cdot X_2) y_1 y_2 + \lambda_1 \lambda_3 \sum (X_1 \cdot X_3) y_1 y_3 + \lambda_2 \lambda_3 \sum (X_2 \cdot X_3) y_2 y_3
+$$
+
+$$
+L = \lambda_1 + \lambda_2 + \lambda_3 + \frac{1}{2} \left[ \lambda_1^2 \sum (X_1 \cdot X_1) y_1^2 + \lambda_2^2 \sum (X_2 \cdot X_2) y_2^2 + \lambda_3^2 \sum (X_3 \cdot X_3) y_3^2 \right] + \lambda_1 \lambda_2 \sum (X_1 \cdot X_2) y_1 y_2 + \lambda_1 \lambda_3 \sum (X_1 \cdot X_3) y_1 y_3 + \lambda_2 \lambda_3 \sum (X_2 \cdot X_3) y_2 y_3
+$$
+
+$$
+L = \lambda_1 + \lambda_2 + \lambda_3 + \frac{1}{2} \left[ \lambda_1^2 \left((-2)^2 + 4^2\right) (-1)^2 + \lambda_2^2 \left(2^2 + 2^2\right) (1)^2 + \lambda_3^2 \left(4^2 + 2^2\right) (1)^2 \right] + \lambda_1 \lambda_2 \left((-2)(2) + 4(2)\right) (-1)(1) + \lambda_1 \lambda_3 \left((-2)(4) + 4(2)\right) (-1)(1) + \lambda_2 \lambda_3 \left((2)(4) + 2(2)\right) (1)(1)
+$$
+
+$$
+\begin{aligned}
+L &= \lambda_1 + \lambda_2 + \lambda_3 \\
+&+ \frac{1}{2} \left[ \lambda_1^2 \sum (X_1 \cdot X_1) y_1^2 + \lambda_2^2 \sum (X_2 \cdot X_2) y_2^2 + \lambda_3^2 \sum (X_3 \cdot X_3) y_3^2 \right] \\
+&+ \lambda_1 \lambda_2 \sum (X_1 \cdot X_2) y_1 y_2 + \lambda_1 \lambda_3 \sum (X_1 \cdot X_3) y_1 y_3 + \lambda_2 \lambda_3 \sum (X_2 \cdot X_3) y_2 y_3
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+L &= \lambda_1 + \lambda_2 + (\lambda_1 - \lambda_2) \\
+&+ \frac{1}{2} \left[ \lambda_1^2 \sum (X_1 \cdot X_1) y_1^2 + \lambda_2^2 \sum (X_2 \cdot X_2) y_2^2 + (\lambda_1 - \lambda_2)^2 \sum (X_3 \cdot X_3) y_3^2 \right] \\
+&+ \lambda_1 \lambda_2 \sum (X_1 \cdot X_2) y_1 y_2 + \lambda_1 (\lambda_1 - \lambda_2) \sum (X_1 \cdot X_3) y_1 y_3 + \lambda_2 (\lambda_1 - \lambda_2) \sum (X_2 \cdot X_3) y_2 y_3
+\end{aligned}
+$$
+
+$$
+\begin{aligned}L = &\, \lambda_1 + \lambda_2 + (\lambda_1 - \lambda_2) \\&+ \frac{1}{2} \left[ \lambda_1^2 \left((-2)^2 + 4^2\right) (-1)^2 + \lambda_2^2 \left(2^2 + 2^2\right) (1)^2 + (\lambda_1 - \lambda_2)^2 \left(4^2 + 2^2\right) (1)^2 \right] \\&+ \lambda_1 \lambda_2 \left[(-2)(2) + 4(2)\right] (-1)(1) + \lambda_1 (\lambda_1 - \lambda_2) \left[(-2)(4) + 4(2)\right] (-1)(1) \\&+ \lambda_2 (\lambda_1 - \lambda_2) \left[(2)(4) + 2(2)\right] (1)(1)\end{aligned}
+$$
+
+#### LAMBDA CALCULATIONS
+
+$$
+\lambda_3 = \lambda_1 - \lambda_2
+$$
+
+Substitute $\lambda_1 = -\frac{13}{28}$ and $\lambda_2 = \frac{1}{4}$ to calculate $\lambda_3$:
+
+$$
+\lambda_3 = -\frac{13}{28} - \frac{1}{4}
+$$
+
+### Weight Vector Calculation:
+
+$$
+\mathbf{w} = \lambda_1 \mathbf{X}_1 \cdot y_1 + \lambda_2 \mathbf{X}_2 \cdot y_2 + \lambda_3 \mathbf{X}_3 \cdot y_3
+$$
+
+Substitute the given values for $\lambda_i$, $\mathbf{X}_i$, and $y_i$ to calculate $\mathbf{w}$:
+
+$$
+\mathbf{w} = \left(-\frac{13}{28}\right) \cdot (-2, 4) \cdot (-1) + \left(\frac{1}{4}\right) \cdot (2, 2) \cdot 1 + \left(-\frac{4}{7}\right) \cdot (4, 2) \cdot 1
+$$
+
+$$
+\mathbf{w} = \left(\frac{-5} {18}, \frac {-7} {36}\right)
+$$
+
+### Bias Term Calculation:
+
+$$
+y_i*\left(\mathbf{w} . X + b\right) - 1 = 0
+$$
+
+$$
+\mathbf{w}^T . X + b = \left(\frac{-5}{18}, \frac{-7}{36}\right)^T . (4,2) + b
+$$
+
+$$
+\frac{-5} {18} * 4 - \frac{-7}{36} * 2 + b = 0
+$$
+
+Simplify the equation, we get the value of b:
+
+$$
+b = \frac{35}{18}
+$$
+
+#### LINE EQUATION:
+
+$$
+\mathbf{W}^T. X + b = 0
+$$
+
+$$
+\frac{-5}{18} . x_1 - \frac{-7}{36}.x_2 + \frac{35}{18} = 0
+$$
+
+Multiplying 36 on both the sides to cancel out the highest demonimator, we get:
+
+$$
+-10.x_1 - 7.x_2 + 35 = 0
+$$
+
+$$
+= 10.x_1 + 7.x_2 - 35 = 0
+$$
